@@ -13,11 +13,14 @@ class Event
     protected $childs = array();
     protected $tags;
     protected $properties;
+    protected $nameRepeats=false;
+    protected $flagExecutionTime=false;
 
     function __construct($category,$name="")
     {
         $this->setCategory($category);
         $this->setName($name);
+        Filter::count($category,$name);
         $this->start();
     }
 
@@ -35,8 +38,11 @@ class Event
 
     public function stop($deep=false)
     {
-        $this->setEndedAt(microtime(true));
-        $this->setExecutionTime($this->getEndedAt() - $this->getStartedAt());
+        if (!$this->getEndedAt()) {
+            $this->setEndedAt(microtime(true));
+            $this->setExecutionTime($this->getEndedAt() - $this->getStartedAt());
+        }
+
         if ($deep) {
             foreach ($this->getChilds() as $child) {
                 $child->stop($deep);
@@ -219,16 +225,22 @@ class Event
     }
 
 
-    public function toJson($prettyPrint=false)
+    public function toJson($prettyPrint=false,$filter=false)
     {
-        $array = $this->toArray();
-        if ($prettyPrint) {
-            return json_encode($array,JSON_PRETTY_PRINT);
+
+        $array = $this->toArray($filter);
+        if ($array) {
+            if ($prettyPrint) {
+                return json_encode($array,JSON_PRETTY_PRINT);
+            }
+            return json_encode($array);
+        } else {
+            return null;
         }
-        return json_encode($array);
+
     }
 
-    public function toArray()
+    public function toArray($filter=false)
     {
         $array = array(
             "name" => $this->getName(),
@@ -242,10 +254,24 @@ class Event
         );
         if ($this->getChilds()) {
             foreach ($this->getChilds() as $child) {
-                $array['childs'][] = $child->toArray();
+                $result = $child->toArray($filter);
+                if ($result) {
+                    $array['childs'][] = $result;
+                }
+
             }
         }
-        return $array;
+
+        if (Filter::isValid($this) or !$filter or $array['childs']) {
+            $array["flagExecutionTime"] = $this->getFlagExecutionTime();
+            $array["nameRepeats"] = $this->getNameRepeats();
+            return $array;
+        }
+
+        return false;
+
+
+
     }
 
     public function isStopped(){
@@ -289,6 +315,56 @@ class Event
     public function setName($name)
     {
         $this->name = $name;
+
+        return $this;
+    }
+
+
+    /**
+     * Get the value of  Name Repeats
+     *
+     * @return mixed
+     */
+    public function getNameRepeats()
+    {
+        return $this->nameRepeats;
+    }
+
+    /**
+     * Set the value of  Name Repeats
+     *
+     * @param mixed nameRepeats
+     *
+     * @return self
+     */
+    public function setNameRepeats($nameRepeats)
+    {
+        $this->nameRepeats = $nameRepeats;
+
+        return $this;
+    }
+
+
+    /**
+     * Get the value of Flag Execution Time
+     *
+     * @return mixed
+     */
+    public function getFlagExecutionTime()
+    {
+        return $this->flagExecutionTime;
+    }
+
+    /**
+     * Set the value of Flag Execution Time
+     *
+     * @param mixed flagExecutionTime
+     *
+     * @return self
+     */
+    public function setFlagExecutionTime($flagExecutionTime)
+    {
+        $this->flagExecutionTime = $flagExecutionTime;
 
         return $this;
     }

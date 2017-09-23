@@ -8,7 +8,6 @@ class Fasterfy
     protected $rootEvent;
     protected $outputDir;
     protected $registering = true;
-
     /**
      * @param int onceEvery -> set to 0 to never register the file
      *
@@ -54,10 +53,13 @@ class Fasterfy
      *
      * @return Fasterfy/Event
      */
-    function end()
+    function end($categoryCounterAsProperty=true)
     {
-        $this->getRootEvent()->stop(true);
-        $json = $this->getRootEvent()->toJson(true);
+        $root = $this->getRootEvent();
+        $root->stop(true);
+        $counter = Filter::getCategoryCounter();
+        $root->categoryCounter = $counter;
+        $json = $root->toJson(true,true);
         if ($this->getRegistering()) {
             $file = fopen($this->getOutputDir()."/".FASTERFY_CYCLE.".json","w+");
             fwrite($file,$json);
@@ -166,6 +168,11 @@ class Fasterfy
         return $this;
     }
 
+    function stop()
+    {
+        $this->getLastEvent()->stop();
+        return $this;
+    }
     /**
      * Get the value of Registering
      *
@@ -189,5 +196,8 @@ class Fasterfy
 
         return $this;
     }
+
+
+
 
 }
