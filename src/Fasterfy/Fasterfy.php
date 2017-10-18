@@ -57,14 +57,19 @@ class Fasterfy
     {
         $root = $this->getRootEvent();
         $root->stop(true);
+
         $counter = Filter::getCategoryCounter();
         $root->categoryCounter = $counter;
-        $json = $root->toJson(true,true);
-        if ($this->getRegistering()) {
-            $file = fopen($this->getOutputDir()."/".FASTERFY_CYCLE.".json","w+");
-            fwrite($file,$json);
-            fclose($file);
+        $array = $root->toArray(true);
+        if (count($array['childs'])) {
+            if ($this->getRegistering()) {
+                $json = json_encode($array,JSON_PRETTY_PRINT);
+                $file = fopen($this->getOutputDir()."/".FASTERFY_CYCLE.".json","w+");
+                fwrite($file,$json);
+                fclose($file);
+            }
         }
+
 
     }
 

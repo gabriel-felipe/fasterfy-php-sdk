@@ -135,6 +135,7 @@ class Filter
             if ($counter < $limit || in_array($name,self::$nonValidNames)) {
                 $valid = false;
             } else {
+                $event->setFlagNameRepeats(true);
                 self::$nonValidNames[] = $name;
             }
         } else {

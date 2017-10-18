@@ -15,6 +15,7 @@ class Event
     protected $properties;
     protected $nameRepeats=false;
     protected $flagExecutionTime=false;
+    protected $flagNameRepeats=false;
 
     function __construct($category,$name="")
     {
@@ -242,10 +243,12 @@ class Event
 
     public function toArray($filter=false)
     {
+        $started = new DateTime($this->getStartedAt());
+
         $array = array(
             "name" => $this->getName(),
             "category" => $this->getCategory(),
-            "startedAt" => $this->getStartedAt(),
+            "startedAt" => $started->format("Y-m-d H:i:s.u")(),
             "endedAt" => $this->getEndedAt(),
             "executionTime" => $this->getExecutionTime(),
             "tags" => $this->getTags(),
@@ -264,6 +267,7 @@ class Event
 
         if (Filter::isValid($this) or !$filter or $array['childs']) {
             $array["flagExecutionTime"] = $this->getFlagExecutionTime();
+            $array["flagNameRepeats"] = $this->getFlagNameRepeats();
             $array["nameRepeats"] = $this->getNameRepeats();
             return $array;
         }
@@ -365,6 +369,31 @@ class Event
     public function setFlagExecutionTime($flagExecutionTime)
     {
         $this->flagExecutionTime = $flagExecutionTime;
+
+        return $this;
+    }
+
+
+    /**
+     * Get the value of Flag Repeats
+     *
+     * @return mixed
+     */
+    public function getFlagNameRepeats()
+    {
+        return $this->flagNameRepeats;
+    }
+
+    /**
+     * Set the value of Flag Repeats
+     *
+     * @param mixed flagNameRepeats
+     *
+     * @return self
+     */
+    public function setFlagNameRepeats($flagNameRepeats)
+    {
+        $this->flagNameRepeats = $flagNameRepeats;
 
         return $this;
     }
