@@ -144,7 +144,7 @@ class Filter
         return $valid;
     }
 
-    public function getCategoryCounter()
+    public static function getCategoryCounter()
     {
         return self::$categoryExecutionCounter;
     }

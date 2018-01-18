@@ -25,6 +25,31 @@ class Event
         $this->start();
     }
 
+    public function stackTrace() {
+        $stack = debug_backtrace();
+        unset($stack[0]);
+        $output = '';
+
+        $stackLen = count($stack);
+        foreach ($stack as $entry) {
+
+
+            $func = $entry['function'] ;
+
+            $entry_file = 'NO_FILE';
+            if (array_key_exists('file', $entry)) {
+                $entry_file = $entry['file'];
+            }
+            $entry_line = 'NO_LINE';
+            if (array_key_exists('line', $entry)) {
+                $entry_line = $entry['line'];
+            }
+            $output .= $entry_file . ':' . $entry_line . ' - ' . $func . PHP_EOL;
+        }
+        $this->backTrace = $output;
+    }
+
+
     public function addChild(Event $child)
     {
         $this->childs[] = $child;
@@ -243,18 +268,34 @@ class Event
 
     public function toArray($filter=false)
     {
-        $started = new DateTime($this->getStartedAt());
 
+        $started = \DateTime::createFromFormat('U.u', $this->getStartedAt());
+        $ended = \DateTime::createFromFormat('U.u', $this->getEndedAt());
+        if (!$ended || !$started) {
+          $this->stackTrace();
+          $array = array(
+              "name" => $this->getName(),
+              "category" => $this->getCategory(),
+              "executionTime" => round($this->getExecutionTime(),6),
+              "tags" => $this->getTags(),
+              "properties" => $this->getproperties(),
+              "childs" => array(),
+          );
+          throw new Exception("Can't determine started and ended timestamps. \n".print_r($array,true), 1);
+        }
         $array = array(
             "name" => $this->getName(),
             "category" => $this->getCategory(),
-            "startedAt" => $started->format("Y-m-d H:i:s.u")(),
-            "endedAt" => $this->getEndedAt(),
-            "executionTime" => $this->getExecutionTime(),
+            "startedAt" => $started->format("c"),
+            "startedAtPrecision" => $started->format("u"),
+            "endedAt" => $ended->format("c"),
+            "endedAtPrecision" => $started->format("u"),
+            "executionTime" => round($this->getExecutionTime(),6),
             "tags" => $this->getTags(),
             "properties" => $this->getproperties(),
             "childs" => array(),
         );
+
         if ($this->getChilds()) {
             foreach ($this->getChilds() as $child) {
                 $result = $child->toArray($filter);
