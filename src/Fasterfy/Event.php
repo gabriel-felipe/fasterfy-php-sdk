@@ -13,7 +13,8 @@ class Event
     protected $childs = array();
     protected $tags;
     protected $properties;
-    protected $nameRepeats=false;
+    protected $nameRepeats=1;
+    protected $accumulatedExecutionTime=0;
     protected $flagExecutionTime=false;
     protected $flagNameRepeats=false;
 
@@ -24,6 +25,7 @@ class Event
         Filter::count($category,$name);
         $this->start();
     }
+
 
     public function stackTrace() {
         $stack = debug_backtrace();
@@ -74,6 +76,33 @@ class Event
                 $child->stop($deep);
             }
         }
+        $this->groupChilds();
+        return $this;
+    }
+
+    protected function groupChilds()
+    {
+
+        $childs = [];
+        foreach ($this->getChilds() as $child) {
+            $childId = $child->getCategory()."_".$child->getName();
+            if (!isset($childs[$childId])) {
+                $childs[$childId] = $child;
+                if ($child->getAccumulatedExecutionTime() <= $child->getExecutionTime()) {
+                    $child->setAccumulatedExecutionTime($child->getExecutionTime());
+                }
+
+            } else {
+                $tmpChild = $childs[$childId];
+                $tmpGranChilds = $tmpChild->getChilds();
+                $granChilds = array_merge($tmpGranChilds,$child->getChilds());
+                $tmpChild->increaseRepeats(1);
+                $tmpChild->increaseAccumulatedExecutionTime($child->getExecutionTime());
+                $childs[$childId] = $tmpChild;
+            }
+        }
+
+        $this->setChilds($childs);
         return $this;
     }
 
@@ -268,55 +297,64 @@ class Event
 
     public function toArray($filter=false)
     {
+        try {
+            $started = \DateTime::createFromFormat('U.u', $this->getStartedAt());
+            $ended = \DateTime::createFromFormat('U.u', $this->getEndedAt());
+            if (!$ended || !$started) {
+              $this->stackTrace();
+              $array = array(
+                  "started" => $this->getStartedAt(),
+                  "ended" => $this->getEndedAt(),
+                  "name" => $this->getName(),
+                  "category" => $this->getCategory(),
+                  "executionTime" => round($this->getExecutionTime(),6),
+                  "tags" => $this->getTags(),
+                  "properties" => $this->getproperties(),
+                  "childs" => array(),
+              );
+              throw new Exception("Can't determine started and ended timestamps. \n".print_r($array,true), 1);
+            }
+            $array = array(
+                "name" => $this->getName(),
+                "category" => $this->getCategory(),
+                "startedAt" => $started->format("c"),
+                "startedAtPrecision" => $started->format("u"),
+                "endedAt" => $ended->format("c"),
+                "endedAtPrecision" => $started->format("u"),
+                "executionTime" => round($this->getExecutionTime(),6),
+                "tags" => $this->getTags(),
+                "properties" => $this->getproperties(),
+                "childs" => array(),
+            );
 
-        $started = \DateTime::createFromFormat('U.u', $this->getStartedAt());
-        $ended = \DateTime::createFromFormat('U.u', $this->getEndedAt());
-        if (!$ended || !$started) {
-          $this->stackTrace();
-          $array = array(
-              "name" => $this->getName(),
-              "category" => $this->getCategory(),
-              "executionTime" => round($this->getExecutionTime(),6),
-              "tags" => $this->getTags(),
-              "properties" => $this->getproperties(),
-              "childs" => array(),
-          );
-          throw new Exception("Can't determine started and ended timestamps. \n".print_r($array,true), 1);
-        }
-        $array = array(
-            "name" => $this->getName(),
-            "category" => $this->getCategory(),
-            "startedAt" => $started->format("c"),
-            "startedAtPrecision" => $started->format("u"),
-            "endedAt" => $ended->format("c"),
-            "endedAtPrecision" => $started->format("u"),
-            "executionTime" => round($this->getExecutionTime(),6),
-            "tags" => $this->getTags(),
-            "properties" => $this->getproperties(),
-            "childs" => array(),
-        );
+            if ($this->getChilds()) {
+                foreach ($this->getChilds() as $child) {
+                    $result = $child->toArray($filter);
+                    if ($result) {
+                        $array['childs'][] = $result;
+                    }
 
-        if ($this->getChilds()) {
-            foreach ($this->getChilds() as $child) {
-                $result = $child->toArray($filter);
-                if ($result) {
-                    $array['childs'][] = $result;
                 }
+            }
 
+            if (Filter::isValid($this) or !$filter or $array['childs']) {
+                $array["flagExecutionTime"] = $this->getFlagExecutionTime();
+                $array["flagNameRepeats"] = $this->getFlagNameRepeats();
+                $array["accumulatedExecutionTime"] = round($this->getAccumulatedExecutionTime(),6);
+                $array["nameRepeats"] = $this->getNameRepeats();
+                return $array;
+            }
+
+            return false;
+
+        } catch (Exception $e) {
+            if ($file = Fasterfy::getLogFile()) {
+              $message = "Error! ".date("Y-m-d H:i:s")." \n".$e->getMessage();
+              $fhandler = fopen($file,"a+");
+              fwrite($fhandler,$message."\n");
+              fclose($fhandler);
             }
         }
-
-        if (Filter::isValid($this) or !$filter or $array['childs']) {
-            $array["flagExecutionTime"] = $this->getFlagExecutionTime();
-            $array["flagNameRepeats"] = $this->getFlagNameRepeats();
-            $array["nameRepeats"] = $this->getNameRepeats();
-            return $array;
-        }
-
-        return false;
-
-
-
     }
 
     public function isStopped(){
@@ -359,6 +397,7 @@ class Event
      */
     public function setName($name)
     {
+        $name = str_replace(array("/","\\","_","."),"-",$name);
         $this->name = $name;
 
         return $this;
@@ -373,6 +412,12 @@ class Event
     public function getNameRepeats()
     {
         return $this->nameRepeats;
+    }
+
+    public function increaseRepeats(int $int)
+    {
+        $this->nameRepeats = $this->nameRepeats + $int;
+        return $this;
     }
 
     /**
@@ -438,5 +483,41 @@ class Event
 
         return $this;
     }
+
+
+    /**
+     * Get the value of Acumullated Execution Time
+     *
+     * @return mixed
+     */
+    public function getAccumulatedExecutionTime()
+    {
+        if ($this->accumulatedExecutionTime) {
+            return $this->accumulatedExecutionTime;
+        }
+        return $this->getExecutionTime();
+
+    }
+
+    /**
+     * Set the value of Acumullated Execution Time
+     *
+     * @param mixed accumulatedExecutionTime
+     *
+     * @return self
+     */
+    public function setAccumulatedExecutionTime($accumulatedExecutionTime)
+    {
+        $this->accumulatedExecutionTime = $accumulatedExecutionTime;
+
+        return $this;
+    }
+
+    public function increaseAccumulatedExecutionTime($float)
+    {
+        $this->accumulatedExecutionTime = $this->accumulatedExecutionTime + $float;
+        return $this;
+    }
+
 
 }

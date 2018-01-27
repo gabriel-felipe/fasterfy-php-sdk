@@ -1,2 +1,4 @@
 /vendor/
 files/*.json
+files/*.tar.gz
+log.log

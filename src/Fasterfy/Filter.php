@@ -82,7 +82,7 @@ class Filter
 
     protected static function isTimeValid(Event $event)
     {
-        $executionTime = $event->getExecutionTime();
+        $executionTime = $event->getAccumulatedExecutionTime();
         $validTime = true;
         if (isset(self::$timeFilters[$event->getCategory()])) {
             if ($executionTime < self::$timeFilters[$event->getCategory()]) {
@@ -122,11 +122,7 @@ class Filter
         $valid = true;
         $category = $event->getCategory();
         $name = $event->getName();
-        $counter = 0;
-        if (isset(self::$nameExecutionCounter[$name])) {
-            $counter = self::$nameExecutionCounter[$name];
-        }
-        $event->setNameRepeats($counter);
+        $counter = $event->getNameRepeats();
 
         if (isset(self::$nameExecutionFilters[$category])) {
 

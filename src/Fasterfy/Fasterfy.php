@@ -8,6 +8,7 @@ class Fasterfy
     protected $rootEvent;
     protected $outputDir;
     protected $registering = true;
+    protected static $logFile = false;
     /**
      * @param int onceEvery -> set to 0 to never register the file
      *
@@ -26,7 +27,7 @@ class Fasterfy
 
 
         $this->registerCycle();
-        $event = new Event("cycle");
+        $event = new Event("cycle",$_SERVER['REQUEST_URI']);
         $this->setRootEvent($event);
         $this->prependLastEvent($event);
         $this->setOutputDir($outputDir);
@@ -55,9 +56,9 @@ class Fasterfy
      */
     function end($categoryCounterAsProperty=true)
     {
+      try {
         $root = $this->getRootEvent();
         $root->stop(true);
-
         $counter = Filter::getCategoryCounter();
         $root->categoryCounter = $counter;
         $array = $root->toArray(true);
@@ -69,8 +70,14 @@ class Fasterfy
                 fclose($file);
             }
         }
-
-
+      } catch (Exception $e) {
+        if ($file = $this->getLogFile()) {
+          $message = $e->getMessage();
+          $fhandler = fopen($file,"a+");
+          fwrite($fhandler,$message."\n");
+          fclose($fhandler);
+        }
+      }
     }
 
 
@@ -202,7 +209,57 @@ class Fasterfy
         return $this;
     }
 
+    public function compress($compressedFileName=false){
+      $outputDir = $this->getOutputDir();
+      $files = glob($outputDir."/*.json");
+      if (count($files)) {
+          if (!$compressedFileName) {
+            $compressedFileName = $outputDir.'/compressed'.date("Y-m-d-H-i-s").'.tar';
+          }
+          if (file_exists($compressedFileName)) {
+              unlink($compressedFileName);
+          }
+          if (file_exists($compressedFileName.".gz")) {
+              unlink($compressedFileName.".gz");
+          }
+          $phar = new \PharData($compressedFileName);
+          foreach ($files as $file) {
+            $phar->addFile($file,basename($file));
+          }
+          $p1 = $phar->compress(\Phar::GZ);
+          foreach ($files as $file) {
+            unlink($file);
+          }
+          unlink($compressedFileName);
+          return $compressedFileName.".gz";
+      }
+      return null;
+
+    }
 
 
 
+
+
+    /**
+     * Get the value of Log File
+     *
+     * @return mixed
+     */
+    public static function getLogFile()
+    {
+        return self::$logFile;
+    }
+
+    /**
+     * Set the value of Log File
+     *
+     * @param mixed logFile
+     *
+     * @return self
+     */
+    public static function setLogFile($pathLog)
+    {
+        self::$logFile = $pathLog;
+    }
 }

@@ -8,8 +8,14 @@ use Fasterfy\Fasterfy;
 
 $fasterfy = new Fasterfy(dirname(__FILE__)."/../files",1);
 $while = $fasterfy->track("while","First while of test");
-$while2 = $fasterfy->track("while","First while of test");
-$while3 = $fasterfy->track("while","First while of test");
-
+function goDeep($fasterfy, $maxDepth, $currentDepth=1){
+  $event = $fasterfy->track("teste", "Teste $currentDepth");
+  if ($currentDepth < $maxDepth) {
+    goDeep($fasterfy,$maxDepth,$currentDepth+1);
+  }
+  $event->stop();
+}
+goDeep($fasterfy,3);
+goDeep($fasterfy,3);
 // $while->stop();
 $fasterfy->end();

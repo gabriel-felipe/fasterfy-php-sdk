@@ -7,9 +7,4 @@ require_once __DIR__ . '/../vendor/autoload.php'; // Autoload files using Compos
 use Fasterfy\Fasterfy;
 
 $fasterfy = new Fasterfy(dirname(__FILE__)."/../files",1);
-$while = $fasterfy->track("while","First while of test");
-$while2 = $fasterfy->track("while","First while of test");
-$while3 = $fasterfy->track("while","First while of test");
-
-// $while->stop();
-$fasterfy->end();
+echo $fasterfy->compress();
